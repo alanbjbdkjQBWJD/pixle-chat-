@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>PIXEL ZONE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;font-family:'Press Start 2P',cursive}
+body{margin:0;background:#000;color:#000}
+.screen{display:none;min-height:100vh;align-items:center;justify-content:center}
+.active{display:flex}
+#bigDoor{width:300px;height:450px;background:linear-gradient(#7b4a12,#3b2208);box-shadow:inset 0 0 30px #000,0 20px 40px #000;cursor:pointer}
+.doors{gap:60px;display:flex;justify-content:center}
+.door{width:180px;height:280px;cursor:pointer;box-shadow:0 10px 20px #000}
+.boys{background:#1e90ff}
+.girls{background:#ff69b4}
+.page{display:none;min-height:100vh;padding:20px}
+.boysPage{background:#eee}
+.girlsPage{background:#fff7a8}
+.chatBox{width:700px;background:#fff;border:4px solid #000;padding:10px}
+.messages{height:250px;border:3px solid #000;padding:10px;overflow-y:auto;margin-bottom:10px;font-size:14px;direction:ltr}
+.messages b.username{font-size:12px;display:inline-block;width:80px;text-align:left;cursor:pointer}
+.inputBar{display:flex;gap:10px}
+input{flex:1;padding:10px;border:3px solid #000}
+button{padding:10px 14px;border:3px solid #000;background:#ccc;cursor:pointer}
+.side{margin-left:20px;display:flex;flex-direction:column;gap:10px}
+.side button{background:#3a3f5c;color:#fff}
+canvas{border:3px solid #000;background:#fff}
+.grid{display:grid;grid-template-columns:repeat(3,80px);gap:5px}
+.cell{width:80px;height:80px;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="screen1" class="screen active"><div id="bigDoor"></div></div>
+
+<div id="screen2" class="screen">
+  <div class="doors">
+    <div class="door boys" onclick="openPage('boys')"></div>
+    <div class="door girls" onclick="openPage('girls')"></div>
+  </div>
+</div>
+
+<div id="boys" class="page boysPage">
+  <button onclick="back()">BACK</button><br><br>
+  <div style="display:flex">
+    <div class="chatBox">
+      <input id="bName" placeholder="Enter your name"><br><br>
+      <div class="messages" id="bMsg"></div>
+      <div class="inputBar">
+        <input id="bInput" placeholder="MESSAGE">
+        <button onclick="send('b')">SEND</button>
+      </div>
+    </div>
+    <div class="side">
+      <button onclick="showDraw('b')">DRAW</button>
+      <button onclick="showXO('b')">XO</button>
+    </div>
+  </div>
+  <div id="bDraw" style="display:none;margin-top:20px"><canvas id="bCanvas" width="500" height="300"></canvas></div>
+  <div id="bXO" style="display:none;margin-top:20px"><div class="grid" id="bGrid"></div></div>
+</div>
+
+<div id="girls" class="page girlsPage">
+  <button onclick="back()">BACK</button><br><br>
+  <div style="display:flex">
+    <div class="chatBox" style="background:#ffe4ec">
+      <input id="gName" placeholder="Enter your name"><br><br>
+      <div class="messages" id="gMsg"></div>
+      <div class="inputBar">
+        <input id="gInput" placeholder="MESSAGE">
+        <button onclick="send('g')">SEND</button>
+      </div>
+    </div>
+    <div class="side">
+      <button onclick="showDraw('g')">DRAW</button>
+      <button onclick="showXO('g')">XO</button>
+    </div>
+  </div>
+  <div id="gDraw" style="display:none;margin-top:20px"><canvas id="gCanvas" width="500" height="300"></canvas></div>
+  <div id="gXO" style="display:none;margin-top:20px"><div class="grid" id="gGrid"></div></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const bigDoor=document.getElementById("bigDoor");
+const screen1=document.getElementById("screen1");
+const screen2=document.getElementById("screen2");
+bigDoor.addEventListener("click",()=>{screen1.classList.remove("active");screen2.classList.add("active")});
+function openPage(id){screen2.classList.remove("active");document.getElementById(id).style.display="block"}
+function back(){boys.style.display="none";girls.style.display="none";screen2.classList.add("active")}
+
+function getUsername(){let name=localStorage.getItem("username");if(!name){name="User"+Math.floor(Math.random()*10000);localStorage.setItem("username",name)}return name}
+
+function send(t){
+  const input=document.getElementById(t+"Input");
+  const nameInput=document.getElementById(t+"Name");
+  if(!input.value.trim()) return;
+  let name=getUsername();
+  if(nameInput.value.trim()!=="") name=nameInput.value.trim();
+  localStorage.setItem("username",name);
+  db.ref(t+"/messages").push({name:name,message:input.value});
+  input.value="";
+}
+
+function listenChat(t){
+  const box=document.getElementById(t+"Msg");
+  db.ref(t+"/messages").on("child_added",snap=>{
+    const data=snap.val();
+    let html=`<b class="username">${data.name}</b>: ${data.message}<br>`;
+    box.innerHTML+=html; box.scrollTop=box.scrollHeight;
+    const allNames=box.getElementsByClassName("username");
+    for(let u of allNames) u.onclick=()=>{document.getElementById(t+"Input").value="@"+u.textContent+" ";document.getElementById(t+"Input").focus();}
+  });
+}
+listenChat("b"); listenChat("g");
+
+document.getElementById("bInput").addEventListener("keydown",e=>{if(e.key==="Enter") send("b")});
+document.getElementById("gInput").addEventListener("keydown",e=>{if(e.key==="Enter") send("g")});
+
+function setupCanvas(id){
+  const c=document.getElementById(id);
+  if(!c) return;
+  const ctx=c.getContext("2d");
+  let draw=false;
+  c.addEventListener("mousedown",()=>draw=true);
+  c.addEventListener("mouseup",()=>draw=false);
+  c.addEventListener("mouseleave",()=>draw=false);
+  c.addEventListener("mousemove",e=>{if(draw){const rect=c.getBoundingClientRect();const x=e.clientX-rect.left;const y=e.clientY-rect.top;ctx.fillRect(x,y,6,6);}});
+}
+setupCanvas("bCanvas"); setupCanvas("gCanvas");
+
+function checkWin(cells){const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];for(const w of wins){const [a,b,c]=w;if(cells[a].textContent&&cells[a].textContent===cells[b].textContent&&cells[b].textContent===cells[c].textContent) return cells[a].textContent;} return null;}
+function aiMove(cells){const empty=[];for(let i=0;i<9;i++) if(!cells[i].textContent) empty.push(i);if(empty.length===0) return;const move=empty[Math.floor(Math.random()*empty.length)];cells[move].textContent="O";}
+function setupXO(id){const g=document.getElementById(id);g.innerHTML="";const cells=[];for(let i=0;i<9;i++){const d=document.createElement("div");d.className="cell";d.onclick=()=>{if(!d.textContent){d.textContent="X";let winner=checkWin(cells);if(winner){alert(winner+" wins!"); g.innerHTML=""; setupXO(id); return;} aiMove(cells); winner=checkWin(cells);if(winner){alert(winner+" wins!"); g.innerHTML=""; setupXO(id); return;}}};g.appendChild(d);cells.push(d);}}
+
+function showDraw(t){document.getElementById(t+"Draw").style.display="block";document.getElementById(t+"XO").style.display="none"}
+function showXO(t){document.getElementById(t+"XO").style.display="block";document.getElementById(t+"Draw").style.display="none";setupXO(t+"Grid")}
+</script>
+</body>
+</html>
